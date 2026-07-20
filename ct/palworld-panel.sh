@@ -3,7 +3,7 @@
 # Palworld dedicated server + management panel, in one Debian 12 Proxmox LXC.
 #
 # One-line install, run ON the Proxmox VE host as root:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/steam-cmd/main/ct/palworld-panel.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/rallypoint-cmd/main/ct/palworld-panel.sh)"
 #
 # Re-run the same line INSIDE the container (pct enter <id>) to update in place.
 # Override any default with an env var, e.g. CTID=210 RAM=24576 DISK=80 bash -c "$(...)".
@@ -29,7 +29,7 @@ TZ_REGION="${TZ_REGION:-Etc/UTC}"
 PANEL_PORT="${PANEL_PORT:-8080}"
 PANEL_ADMIN_USER="${PANEL_ADMIN_USER:-admin}"
 PANEL_ADMIN_PASSWORD="${PANEL_ADMIN_PASSWORD:-}"  # empty = random (printed once)
-PANEL_REPO_URL="${PANEL_REPO_URL:-https://github.com/bbennetth/steam-cmd.git}"
+PANEL_REPO_URL="${PANEL_REPO_URL:-https://github.com/bbennetth/rallypoint-cmd.git}"
 PANEL_REPO_REF="${PANEL_REPO_REF:-main}"
 PAL_APP_ID=2394010
 DRYRUN="${DRYRUN:-}"                      # set to 1 to print the plan and exit (no changes)
@@ -192,12 +192,21 @@ install -d -o palworld -g palworld -m 0750 /var/lib/palworld-panel /var/backups/
 install -d -o root -g palworld -m 0750 /etc/palworld-panel
 
 echo ">>> SteamCMD + Palworld dedicated server (pulls several GiB)"
-su -l palworld -c '
-  set -e
-  mkdir -p /opt/palworld/steamcmd && cd /opt/palworld/steamcmd
-  curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar zxf -
-  ./steamcmd.sh +force_install_dir /opt/palworld +login anonymous +app_update $PAL_APP_ID validate +quit
-'
+install -d -o palworld -g palworld /opt/palworld/steamcmd
+sudo -u palworld -H bash -c 'cd /opt/palworld/steamcmd && curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar zxf -'
+# SteamCMD's first run on a fresh box commonly fails the app install with
+# "ERROR! Failed to install app '2394010' (Missing configuration)" — the
+# appinfo cache isn't populated yet. Retrying is the documented fix; treat
+# success as PalServer.sh actually landing, not the (unreliable) exit code.
+sc_ok=0
+for attempt in 1 2 3; do
+  echo ">>>   SteamCMD attempt \$attempt/3"
+  sudo -u palworld -H bash -c 'cd /opt/palworld/steamcmd && ./steamcmd.sh +force_install_dir /opt/palworld +login anonymous +app_update $PAL_APP_ID validate +quit' || true
+  [[ -f /opt/palworld/PalServer.sh ]] && { sc_ok=1; break; }
+  echo ">>>   attempt \$attempt did not complete the install — retrying in 5s"
+  sleep 5
+done
+[[ \$sc_ok -eq 1 ]] || { echo "SteamCMD failed to install Palworld after 3 attempts (re-run with VERBOSE=1 for the full log)."; exit 1; }
 
 echo ">>> panel: clone + build"
 git clone --depth 1 --branch "$PANEL_REPO_REF" "$PANEL_REPO_URL" /opt/palworld-panel

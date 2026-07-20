@@ -3,7 +3,7 @@
 **One command, run on the Proxmox VE host as root:**
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/steam-cmd/main/ct/palworld-panel.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/rallypoint-cmd/main/ct/palworld-panel.sh)"
 ```
 
 That single self-contained script (`ct/palworld-panel.sh`) does everything: creates an
@@ -22,7 +22,7 @@ CTID=210 RAM=24576 DISK=80 NET_IP=192.168.1.60/24 NET_GW=192.168.1.1 \
 Common overrides: `CTID HN CORES RAM DISK STORAGE BRIDGE NET_IP NET_GW`
 `PANEL_PORT PANEL_ADMIN_USER PANEL_ADMIN_PASSWORD PANEL_REPO_URL PANEL_REPO_REF`.
 
-> Requires this repo to be reachable via git (default `github.com/bbennetth/steam-cmd`). Before
+> Requires this repo to be reachable via git (default `github.com/bbennetth/rallypoint-cmd`). Before
 > that first push exists, use the workstation pusher below.
 
 ## Files
@@ -43,7 +43,7 @@ Palworld game process keeps running.**
 
 ```bash
 pct enter <ctid>
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/steam-cmd/main/ct/palworld-panel.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/rallypoint-cmd/main/ct/palworld-panel.sh)"
 ```
 
 **No git remote / local dev?** From the repo root on your workstation:
