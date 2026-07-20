@@ -8,6 +8,7 @@
 # Re-run the same line INSIDE the container (pct enter <id>) to update in place.
 # Override any default with an env var, e.g. CTID=210 RAM=24576 DISK=80 bash -c "$(...)".
 # Preview only (creates nothing): DRYRUN=1 bash -c "$(curl -fsSL .../ct/palworld-panel.sh)".
+# See raw command output while it runs: VERBOSE=1 bash -c "$(...)".
 
 set -euo pipefail
 
@@ -32,6 +33,7 @@ PANEL_REPO_URL="${PANEL_REPO_URL:-https://github.com/bbennetth/steam-cmd.git}"
 PANEL_REPO_REF="${PANEL_REPO_REF:-main}"
 PAL_APP_ID=2394010
 DRYRUN="${DRYRUN:-}"                      # set to 1 to print the plan and exit (no changes)
+VERBOSE="${VERBOSE:-}"                    # set to 1 to show raw pveam/pct/apt/node output
 
 # --- output helpers (Proxmox-helper style) ---------------------------------
 if [[ -t 1 ]]; then YW=$'\e[33m'; GN=$'\e[1;92m'; RD=$'\e[31m'; BL=$'\e[36m'; CL=$'\e[0m'; else YW=; GN=; RD=; BL=; CL=; fi
@@ -42,6 +44,9 @@ die()      { echo -e " ${RD}✗ $*${CL}" >&2; exit 1; }
 # `set -o pipefail` + `set -e` that would abort the script. `|| true`
 # contains it so randpw always succeeds with its 24 captured chars.
 randpw()   { tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 24 || true; }
+# $STD prefixes noisy commands: quiet by default, raw output when VERBOSE=1.
+if [[ -n "$VERBOSE" ]]; then STD=""; else STD="qt"; fi
+qt() { "$@" >/dev/null 2>&1; }
 
 # --- update mode: same command re-run INSIDE the container ------------------
 if [[ -f /etc/palworld-panel/panel.env ]]; then
@@ -91,10 +96,11 @@ if [[ -z "$TEMPLATE" ]]; then
   if [[ -n "$DRYRUN" ]]; then
     TEMPLATE="$TEMPLATE_STORAGE:vztmpl/debian-12-standard-* (would download if missing)"
   else
-    pveam update >/dev/null
+    $STD pveam update
     NAME="$(pveam available --section system | awk '/debian-12-standard/{print $2}' | sort | tail -n1)"
     [[ -n "$NAME" ]] || die "No debian-12-standard template available."
-    pveam download "$TEMPLATE_STORAGE" "$NAME" >/dev/null
+    msg_info "Downloading template $NAME"
+    $STD pveam download "$TEMPLATE_STORAGE" "$NAME"
     TEMPLATE="$TEMPLATE_STORAGE:vztmpl/$NAME"
   fi
 fi
@@ -127,14 +133,35 @@ fi
 
 # --- create + start the LXC -------------------------------------------------
 msg_info "Creating LXC $CTID ($HN): ${CORES} cores / ${RAM} MiB / ${DISK} GiB"
-pct create "$CTID" "$TEMPLATE" \
+$STD pct create "$CTID" "$TEMPLATE" \
   --hostname "$HN" --cores "$CORES" --memory "$RAM" --swap "$SWAP" \
   --rootfs "$STORAGE:$DISK" --net0 "$NETCONF" \
   --unprivileged 1 --features nesting=1 --onboot 1 --ostype debian \
-  --password "$CT_PASSWORD" --timezone host >/dev/null
+  --password "$CT_PASSWORD" --timezone host
 pct start "$CTID"
-for i in $(seq 1 30); do pct exec "$CTID" -- ping -c1 -W2 deb.debian.org &>/dev/null && break; [[ $i -eq 30 ]] && die "No network in CT after 60s."; sleep 2; done
-msg_ok "LXC $CTID created and online"
+
+# Readiness = the CT can resolve a hostname (what apt needs). This beats a
+# `ping` probe: getent is always present (ping often isn't in the minimal
+# template) and ICMP is frequently blocked, so ping fails even when the
+# network is fine. On timeout, dump real diagnostics instead of a bare error.
+msg_info "Waiting for the container network"
+NET_OK=0
+for i in $(seq 1 30); do
+  if pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1; then NET_OK=1; break; fi
+  [[ -n "$VERBOSE" ]] && echo "   probe $i/30: no DNS resolution yet"
+  sleep 2
+done
+if [[ $NET_OK -eq 0 ]]; then
+  echo -e " ${RD}✗ Container $CTID has no working network/DNS after 60s.${CL}" >&2
+  echo "   --- diagnostics (CT $CTID) ---" >&2
+  pct exec "$CTID" -- ip -4 addr show dev eth0 2>&1 | sed 's/^/   addr: /' >&2 || true
+  pct exec "$CTID" -- ip -4 route show 2>&1     | sed 's/^/   route: /' >&2 || true
+  pct exec "$CTID" -- cat /etc/resolv.conf 2>&1 | sed 's/^/   dns: /'   >&2 || true
+  echo "   → Check bridge ($BRIDGE)/VLAN/DHCP, or pass a static NET_IP=<cidr> NET_GW=<gw>." >&2
+  echo "   → The CT was created but not provisioned; remove it with:  pct destroy $CTID" >&2
+  exit 1
+fi
+msg_ok "Container network is up"
 
 # --- provision everything inside the CT (one inline pass) -------------------
 msg_info "Installing Node, SteamCMD, Palworld + the panel (several minutes)"
@@ -142,16 +169,21 @@ pct exec "$CTID" -- bash -s <<EOF
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 ln -sf "/usr/share/zoneinfo/$TZ_REGION" /etc/localtime
+QT="$STD"; qt() { "\$@" >/dev/null 2>&1; }   # quiet unless VERBOSE (baked from host)
 
 echo ">>> base packages + i386 multiarch (SteamCMD is 32-bit)"
 dpkg --add-architecture i386
-apt-get -qq update
-apt-get -qq -y install curl ca-certificates tar xz-utils sudo git \
-  lib32gcc-s1 lib32stdc++6 python3 make g++ procps >/dev/null
+\$QT apt-get -qq update
+\$QT apt-get -qq -y install curl ca-certificates tar xz-utils sudo git \
+  lib32gcc-s1 lib32stdc++6 python3 make g++ procps
 
 echo ">>> Node.js 22"
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
-apt-get -qq -y install nodejs >/dev/null
+if [[ -z "\$QT" ]]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+else
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+fi
+\$QT apt-get -qq -y install nodejs
 
 echo ">>> palworld user + data dirs"
 id palworld &>/dev/null || useradd -d /opt/palworld -m -s /bin/bash palworld
