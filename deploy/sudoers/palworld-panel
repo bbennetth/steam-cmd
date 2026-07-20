@@ -1,0 +1,16 @@
+# /etc/sudoers.d/palworld-panel   (install root:root 0440; verify: visudo -cf <file>)
+#
+# The panel runs as the `palworld` user and needs exactly two privileged
+# capabilities: bounce palworld.service, and tail its journal. Everything
+# else (files, saves, config, steamcmd, backups) it owns directly.
+#
+# Wildcard-free on purpose — a `systemctl *` sudoers wildcard is a classic
+# privilege-escalation footgun. These argv strings must match the frozen
+# constants in apps/server/src/services/constants.ts EXACTLY.
+
+palworld ALL=(root) NOPASSWD: /usr/bin/systemctl start palworld.service
+palworld ALL=(root) NOPASSWD: /usr/bin/systemctl stop palworld.service
+palworld ALL=(root) NOPASSWD: /usr/bin/systemctl restart palworld.service
+palworld ALL=(root) NOPASSWD: /usr/bin/journalctl -u palworld.service -n 500 -o cat -f
+
+Defaults:palworld !requiretty

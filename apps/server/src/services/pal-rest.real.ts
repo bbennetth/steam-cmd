@@ -1,0 +1,85 @@
+import { palServerInfoSchema, palServerMetricsSchema, playersResponseSchema } from '@steam-cmd/shared'
+import type { Player } from '@steam-cmd/shared'
+import type { Env } from '../env.js'
+import type { Logger } from '../logger.js'
+import type { PalRest } from './types.js'
+import { readRestCreds } from './rest-creds.js'
+
+const TIMEOUT_MS = 5000
+
+// Client for the Palworld REST API on loopback (127.0.0.1:8212).
+// Auth = HTTP Basic, user `admin`, password = the panel-managed
+// AdminPassword read from the ini. The browser never talks to this —
+// every call is proxied through panel routes.
+
+export function createRealPalRest(env: Env, logger: Logger): PalRest {
+  function baseUrl(): string {
+    // PAL_REST_URL wins; its port is authoritative unless the ini moved it.
+    const url = new URL(env.PAL_REST_URL)
+    const { port } = readRestCreds(env.PAL_DIR)
+    if (port && Number(url.port || '8212') !== port) url.port = String(port)
+    return url.origin
+  }
+
+  async function call(method: 'GET' | 'POST', apiPath: string, body?: unknown): Promise<unknown> {
+    const { password } = readRestCreds(env.PAL_DIR)
+    const auth = Buffer.from(`admin:${password}`).toString('base64')
+    let res: Response
+    try {
+      res = await fetch(`${baseUrl()}/v1/api/${apiPath}`, {
+        method,
+        headers: {
+          authorization: `Basic ${auth}`,
+          ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      })
+    } catch (err) {
+      throw new Error(
+        `Palworld REST API unreachable: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+    if (!res.ok) {
+      logger.warn('pal rest non-ok', { path: apiPath, status: res.status })
+      throw new Error(`Palworld REST API ${apiPath} returned ${res.status}`)
+    }
+    const text = await res.text()
+    if (!text) return {}
+    try {
+      return JSON.parse(text) as unknown
+    } catch {
+      return {}
+    }
+  }
+
+  return {
+    reachable: async () => {
+      try {
+        await call('GET', 'info')
+        return true
+      } catch {
+        return false
+      }
+    },
+    info: async () => palServerInfoSchema.parse(await call('GET', 'info')),
+    players: async (): Promise<Player[]> =>
+      playersResponseSchema.parse(await call('GET', 'players')).players,
+    metrics: async () => palServerMetricsSchema.parse(await call('GET', 'metrics')),
+    announce: async (message) => {
+      await call('POST', 'announce', { message })
+    },
+    kick: async (userId, message) => {
+      await call('POST', 'kick', { userid: userId, message: message ?? 'Kicked by admin' })
+    },
+    ban: async (userId, message) => {
+      await call('POST', 'ban', { userid: userId, message: message ?? 'Banned by admin' })
+    },
+    unban: async (userId) => {
+      await call('POST', 'unban', { userid: userId })
+    },
+    save: async () => {
+      await call('POST', 'save')
+    },
+  }
+}

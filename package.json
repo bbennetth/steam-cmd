@@ -1,0 +1,46 @@
+{
+  "name": "steam-cmd",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Palworld server management panel — AMP-style web console for a SteamCMD-powered dedicated server in a Proxmox LXC.",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=11.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint .",
+    "typecheck": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "dev": "bash scripts/dev.sh",
+    "dev:server": "npm run dev --workspace=@steam-cmd/server",
+    "dev:web": "npm run dev --workspace=@steam-cmd/web",
+    "db:generate": "npm run db:generate --workspace=@steam-cmd/server",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.18.20": true
+  }
+}

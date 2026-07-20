@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Byron Howell — MIT
+# Palworld dedicated server + management panel, in one Debian 12 Proxmox LXC.
+#
+# One-line install, run ON the Proxmox VE host as root:
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/steam-cmd/main/ct/palworld-panel.sh)"
+#
+# Re-run the same line INSIDE the container (pct enter <id>) to update in place.
+# Override any default with an env var, e.g. CTID=210 RAM=24576 DISK=80 bash -c "$(...)".
+# Preview only (creates nothing): DRYRUN=1 bash -c "$(curl -fsSL .../ct/palworld-panel.sh)".
+
+set -euo pipefail
+
+# --- config (env-overridable) ----------------------------------------------
+CTID="${CTID:-}"                         # empty = next free id
+HN="${HN:-palworld}"
+CORES="${CORES:-6}"
+RAM="${RAM:-16384}"                      # MiB (Palworld leak climbs 15-25 GiB)
+SWAP="${SWAP:-4096}"
+DISK="${DISK:-64}"                       # GiB (game ~15 + backups)
+STORAGE="${STORAGE:-local-lvm}"
+TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
+BRIDGE="${BRIDGE:-vmbr0}"
+NET_IP="${NET_IP:-dhcp}"                 # "dhcp" or CIDR e.g. 192.168.1.60/24
+NET_GW="${NET_GW:-}"                     # required if NET_IP is static
+CT_PASSWORD="${CT_PASSWORD:-}"           # CT root pw; empty = random
+TZ_REGION="${TZ_REGION:-Etc/UTC}"
+PANEL_PORT="${PANEL_PORT:-8080}"
+PANEL_ADMIN_USER="${PANEL_ADMIN_USER:-admin}"
+PANEL_ADMIN_PASSWORD="${PANEL_ADMIN_PASSWORD:-}"  # empty = random (printed once)
+PANEL_REPO_URL="${PANEL_REPO_URL:-https://github.com/bbennetth/steam-cmd.git}"
+PANEL_REPO_REF="${PANEL_REPO_REF:-main}"
+PAL_APP_ID=2394010
+DRYRUN="${DRYRUN:-}"                      # set to 1 to print the plan and exit (no changes)
+
+# --- output helpers (Proxmox-helper style) ---------------------------------
+if [[ -t 1 ]]; then YW=$'\e[33m'; GN=$'\e[1;92m'; RD=$'\e[31m'; BL=$'\e[36m'; CL=$'\e[0m'; else YW=; GN=; RD=; BL=; CL=; fi
+msg_info() { echo -e " ${BL}➜${CL} ${YW}$*${CL}"; }
+msg_ok()   { echo -e " ${GN}✓${CL} $*"; }
+die()      { echo -e " ${RD}✗ $*${CL}" >&2; exit 1; }
+# `head -c` closes the pipe early → `tr` takes SIGPIPE (141); under
+# `set -o pipefail` + `set -e` that would abort the script. `|| true`
+# contains it so randpw always succeeds with its 24 captured chars.
+randpw()   { tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 24 || true; }
+
+# --- update mode: same command re-run INSIDE the container ------------------
+if [[ -f /etc/palworld-panel/panel.env ]]; then
+  if [[ -n "$DRYRUN" ]]; then
+    echo -e " ${YW}[dry-run]${CL} update mode: would git fetch+reset to '${PANEL_REPO_REF}', npm ci && build, then restart palworld-panel.service. No changes made."
+    exit 0
+  fi
+  msg_info "Updating the panel in place (the game keeps running)"
+  cd /opt/palworld-panel
+  git config --global --add safe.directory /opt/palworld-panel 2>/dev/null || true
+  git fetch --depth 1 origin "$PANEL_REPO_REF"
+  git reset --hard "origin/$PANEL_REPO_REF"
+  npm ci && npm run build
+  chown -R root:palworld /opt/palworld-panel && chmod -R g-w /opt/palworld-panel
+  systemctl restart palworld-panel.service
+  msg_ok "Panel updated"
+  exit 0
+fi
+
+# --- host preflight ---------------------------------------------------------
+[[ "$NET_IP" == "dhcp" || -n "$NET_GW" ]] || die "Static NET_IP set but NET_GW is empty."
+[[ -n "$CT_PASSWORD" ]] || CT_PASSWORD="$(randpw)"
+if [[ -n "$PANEL_ADMIN_PASSWORD" ]]; then AP_PROVIDED=1; else PANEL_ADMIN_PASSWORD="$(randpw)"; AP_PROVIDED=0; fi
+PANEL_PEPPER="$(randpw)$(randpw)"
+GAME_ADMIN_PW="$(randpw)"
+
+HAVE_PCT=0; command -v pct >/dev/null && HAVE_PCT=1
+if [[ -z "$DRYRUN" ]]; then
+  [[ $EUID -eq 0 ]] || die "Run as root on the Proxmox VE host."
+  [[ $HAVE_PCT -eq 1 ]] || die "'pct' not found — run this on a Proxmox VE host."
+fi
+
+echo -e "\n ${GN}Palworld Panel${CL} — Proxmox VE one-line installer\n"
+
+# --- resolve id / network / template (read-only) ---------------------------
+if [[ -z "$CTID" ]]; then
+  CTID="$([[ $HAVE_PCT -eq 1 ]] && pvesh get /cluster/nextid 2>/dev/null || echo '<next-free>')"
+fi
+[[ $HAVE_PCT -eq 1 ]] && pct status "$CTID" &>/dev/null && die "CT $CTID already exists."
+NETCONF="name=eth0,bridge=$BRIDGE"
+[[ "$NET_IP" == "dhcp" ]] && NETCONF+=",ip=dhcp" || NETCONF+=",ip=$NET_IP,gw=$NET_GW"
+
+msg_info "Locating Debian 12 template"
+TEMPLATE=""
+[[ $HAVE_PCT -eq 1 ]] && TEMPLATE="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | awk '/debian-12-standard/{print $1}' | sort | tail -n1)"
+if [[ -z "$TEMPLATE" ]]; then
+  if [[ -n "$DRYRUN" ]]; then
+    TEMPLATE="$TEMPLATE_STORAGE:vztmpl/debian-12-standard-* (would download if missing)"
+  else
+    pveam update >/dev/null
+    NAME="$(pveam available --section system | awk '/debian-12-standard/{print $2}' | sort | tail -n1)"
+    [[ -n "$NAME" ]] || die "No debian-12-standard template available."
+    pveam download "$TEMPLATE_STORAGE" "$NAME" >/dev/null
+    TEMPLATE="$TEMPLATE_STORAGE:vztmpl/$NAME"
+  fi
+fi
+msg_ok "Template: $TEMPLATE"
+
+# --- dry-run: print the plan and stop (no changes) --------------------------
+if [[ -n "$DRYRUN" ]]; then
+  ap_display="$([[ $AP_PROVIDED -eq 1 ]] && echo "$PANEL_ADMIN_PASSWORD" || echo '<auto-generated on install>')"
+  cat <<PLAN
+ ${YW}[dry-run]${CL} No changes made. Would create CT ${CTID}:
+   hostname ...... $HN
+   resources ..... $CORES cores / $RAM MiB RAM / $SWAP MiB swap / $DISK GiB on $STORAGE
+   flags ......... unprivileged, nesting=1, onboot=1
+   network ....... $NETCONF
+   template ...... $TEMPLATE
+   panel ......... http://<ct-ip>:$PANEL_PORT   (login: $PANEL_ADMIN_USER / ${ap_display})
+   source ........ $PANEL_REPO_URL @ $PANEL_REPO_REF
+
+ Host command:
+   pct create $CTID $TEMPLATE --hostname $HN --cores $CORES --memory $RAM \\
+     --swap $SWAP --rootfs $STORAGE:$DISK --net0 $NETCONF \\
+     --unprivileged 1 --features nesting=1 --onboot 1 --ostype debian --timezone host
+
+ Then inside the CT: i386 multiarch + Node 22 + SteamCMD (app $PAL_APP_ID) + Palworld,
+ clone & build the panel, write PalWorldSettings.ini / systemd units / sudoers / panel.env,
+ lock down code (root:palworld, group-ro), enable + start palworld + palworld-panel.
+PLAN
+  exit 0
+fi
+
+# --- create + start the LXC -------------------------------------------------
+msg_info "Creating LXC $CTID ($HN): ${CORES} cores / ${RAM} MiB / ${DISK} GiB"
+pct create "$CTID" "$TEMPLATE" \
+  --hostname "$HN" --cores "$CORES" --memory "$RAM" --swap "$SWAP" \
+  --rootfs "$STORAGE:$DISK" --net0 "$NETCONF" \
+  --unprivileged 1 --features nesting=1 --onboot 1 --ostype debian \
+  --password "$CT_PASSWORD" --timezone host >/dev/null
+pct start "$CTID"
+for i in $(seq 1 30); do pct exec "$CTID" -- ping -c1 -W2 deb.debian.org &>/dev/null && break; [[ $i -eq 30 ]] && die "No network in CT after 60s."; sleep 2; done
+msg_ok "LXC $CTID created and online"
+
+# --- provision everything inside the CT (one inline pass) -------------------
+msg_info "Installing Node, SteamCMD, Palworld + the panel (several minutes)"
+pct exec "$CTID" -- bash -s <<EOF
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+ln -sf "/usr/share/zoneinfo/$TZ_REGION" /etc/localtime
+
+echo ">>> base packages + i386 multiarch (SteamCMD is 32-bit)"
+dpkg --add-architecture i386
+apt-get -qq update
+apt-get -qq -y install curl ca-certificates tar xz-utils sudo git \
+  lib32gcc-s1 lib32stdc++6 python3 make g++ procps >/dev/null
+
+echo ">>> Node.js 22"
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+apt-get -qq -y install nodejs >/dev/null
+
+echo ">>> palworld user + data dirs"
+id palworld &>/dev/null || useradd -d /opt/palworld -m -s /bin/bash palworld
+install -d -o palworld -g palworld -m 0755 /opt/palworld
+install -d -o palworld -g palworld -m 0750 /var/lib/palworld-panel /var/backups/palworld
+install -d -o root -g palworld -m 0750 /etc/palworld-panel
+
+echo ">>> SteamCMD + Palworld dedicated server (pulls several GiB)"
+su -l palworld -c '
+  set -e
+  mkdir -p /opt/palworld/steamcmd && cd /opt/palworld/steamcmd
+  curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar zxf -
+  ./steamcmd.sh +force_install_dir /opt/palworld +login anonymous +app_update $PAL_APP_ID validate +quit
+'
+
+echo ">>> panel: clone + build"
+git clone --depth 1 --branch "$PANEL_REPO_REF" "$PANEL_REPO_URL" /opt/palworld-panel
+cd /opt/palworld-panel
+npm ci
+npm run build
+
+echo ">>> PalWorldSettings.ini (REST on, RCON off, generated AdminPassword)"
+PAL_CFG=/opt/palworld/Pal/Saved/Config/LinuxServer
+install -d -o palworld -g palworld -m 0755 "\$PAL_CFG"
+if [[ ! -f "\$PAL_CFG/PalWorldSettings.ini" ]]; then
+  sed "s/__ADMIN_PASSWORD__/$GAME_ADMIN_PW/" \
+    /opt/palworld-panel/deploy/config/PalWorldSettings.default.ini > "\$PAL_CFG/PalWorldSettings.ini"
+  chown palworld:palworld "\$PAL_CFG/PalWorldSettings.ini"; chmod 0640 "\$PAL_CFG/PalWorldSettings.ini"
+fi
+
+echo ">>> systemd units + least-privilege sudoers"
+install -m 0644 deploy/systemd/palworld.service /etc/systemd/system/palworld.service
+install -m 0644 deploy/systemd/palworld-panel.service /etc/systemd/system/palworld-panel.service
+install -m 0440 -o root -g root deploy/sudoers/palworld-panel /etc/sudoers.d/palworld-panel
+visudo -cf /etc/sudoers.d/palworld-panel >/dev/null
+
+echo ">>> panel environment"
+cat > /etc/palworld-panel/panel.env <<ENV
+NODE_ENV=production
+PANEL_MODE=live
+PANEL_HOST=127.0.0.1
+PANEL_PORT=$PANEL_PORT
+PAL_DIR=/opt/palworld
+DATA_DIR=/var/lib/palworld-panel
+BACKUP_DIR=/var/backups/palworld
+STEAMCMD_BIN=/opt/palworld/steamcmd/steamcmd.sh
+PAL_REST_URL=http://127.0.0.1:8212
+WEB_DIST_DIR=/opt/palworld-panel/apps/web/dist
+PANEL_PASSWORD_PEPPER=$PANEL_PEPPER
+PANEL_ADMIN_USERNAME=$PANEL_ADMIN_USER
+PANEL_ADMIN_PASSWORD=$PANEL_ADMIN_PASSWORD
+PANEL_REPO_REF=$PANEL_REPO_REF
+# LAN is plain http, so secure cookies stay OFF. After the Cloudflare Tunnel
+# is up and you stop using http://<ct-ip>, set COOKIE_SECURE=true.
+COOKIE_SECURE=false
+TRUSTED_PROXY=true
+ENV
+chown root:palworld /etc/palworld-panel/panel.env; chmod 0640 /etc/palworld-panel/panel.env
+
+echo ">>> lock down panel code (root:palworld, group-read-only) + start"
+chown -R root:palworld /opt/palworld-panel; chmod -R g-w /opt/palworld-panel
+systemctl daemon-reload
+systemctl enable -q palworld.service palworld-panel.service
+systemctl start palworld-panel.service palworld.service
+EOF
+msg_ok "Installed"
+
+# --- summary ----------------------------------------------------------------
+IP="$(pct exec "$CTID" -- hostname -I 2>/dev/null | awk '{print $1}')"
+cat <<SUMMARY
+
+ ${GN}Palworld panel is up.${CL}
+   CT id / root pw : ${CTID}  /  ${CT_PASSWORD}
+   Panel (LAN)     : http://${IP:-<container-ip>}:${PANEL_PORT}
+   Login           : ${PANEL_ADMIN_USER} / ${PANEL_ADMIN_PASSWORD}
+   Game (UDP)      : ${IP:-<container-ip>}:8211  (forward this to play)
+   REST API        : 127.0.0.1:8212  (LAN-only, never forward)
+
+ Next: change the admin password, then add a Cloudflare Tunnel to
+ http://127.0.0.1:${PANEL_PORT} and set COOKIE_SECURE=true.
+ Update later: re-run this exact line inside the CT (pct enter ${CTID}).
+SUMMARY

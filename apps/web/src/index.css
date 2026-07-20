@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+/* Dark control-panel theme. */
+:root {
+  color-scheme: dark;
+}
+
+@theme {
+  --color-panel-bg: #0b0f17;
+  --color-panel-surface: #131a26;
+  --color-panel-surface-2: #1b2432;
+  --color-panel-border: #263243;
+  --color-panel-text: #e6edf6;
+  --color-panel-muted: #8b9bb1;
+  --color-panel-accent: #4ea1ff;
+  --color-panel-good: #37d67a;
+  --color-panel-warn: #f6c445;
+  --color-panel-bad: #ff5c6c;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Console + log monospace */
+.mono {
+  font-family: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+/* thin scrollbars in the console */
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-panel-border);
+  border-radius: 4px;
+}

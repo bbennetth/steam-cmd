@@ -1,0 +1,25 @@
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+
+# Local Claude Code launch config (machine-specific abs paths + dev creds)
+.claude/launch.json
+
+# Panel runtime state (dev)
+data/
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Playwright
+playwright-report/
+test-results/
+dist-types/
+**/dist-types/

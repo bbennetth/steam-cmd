@@ -1,0 +1,21 @@
+import { sql } from 'drizzle-orm'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+
+// Metadata for archives under BACKUP_DIR. The `filename` column is the
+// only path source download/restore ever use — user input never touches
+// the filesystem.
+export const backups = sqliteTable('backups', {
+  id: text('id').primaryKey(), // ulid
+  filename: text('filename').notNull().unique(),
+  sizeBytes: integer('size_bytes').notNull(),
+  sha256: text('sha256').notNull(),
+  worldId: text('world_id').notNull(),
+  buildId: text('build_id'),
+  kind: text('kind', { enum: ['manual', 'scheduled', 'pre_restore'] }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+})
+
+export type BackupRow = typeof backups.$inferSelect
+export type BackupInsert = typeof backups.$inferInsert

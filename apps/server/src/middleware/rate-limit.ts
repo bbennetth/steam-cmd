@@ -1,0 +1,60 @@
+import type { Context, MiddlewareHandler } from 'hono'
+import { getConnInfo } from '@hono/node-server/conninfo'
+import { and, eq, lt, sql } from 'drizzle-orm'
+import type { HonoApp } from '../context.js'
+import { errors } from '../errors.js'
+import { rateLimits } from '../db/schema/index.js'
+
+// Fixed-window rate limiting backed by SQLite (mirrors id-api's
+// rate_limits pattern). Good enough for a single-admin panel — the goal
+// is stopping online password guessing, not absorbing DDoS.
+
+export function clientIp(c: Context<HonoApp>): string {
+  const env = c.get('env')
+  if (env.TRUSTED_PROXY) {
+    const cf = c.req.header('cf-connecting-ip')
+    if (cf) return cf
+  }
+  try {
+    return getConnInfo(c).remote.address ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+export function rateLimit(config: {
+  bucket: string
+  windowMs: number
+  max: number
+  key?: (c: Context<HonoApp>) => string
+}): MiddlewareHandler<HonoApp> {
+  return async (c, next) => {
+    const db = c.get('db')
+    const key = config.key ? config.key(c) : clientIp(c)
+    const now = Date.now()
+    const windowStart = now - (now % config.windowMs)
+
+    // Lazily reset rows from previous windows, then upsert-increment.
+    db.delete(rateLimits)
+      .where(and(eq(rateLimits.bucket, config.bucket), lt(rateLimits.windowStartMs, windowStart)))
+      .run()
+    db.insert(rateLimits)
+      .values({ bucket: config.bucket, key, windowStartMs: windowStart, count: 1 })
+      .onConflictDoUpdate({
+        target: [rateLimits.bucket, rateLimits.key],
+        set: { count: sql`${rateLimits.count} + 1` },
+      })
+      .run()
+    const row = db
+      .select({ count: rateLimits.count })
+      .from(rateLimits)
+      .where(and(eq(rateLimits.bucket, config.bucket), eq(rateLimits.key, key)))
+      .get()
+
+    if (row && row.count > config.max) {
+      const retryAfter = Math.ceil((windowStart + config.windowMs - now) / 1000)
+      throw errors.rateLimited(retryAfter, config.bucket)
+    }
+    await next()
+  }
+}

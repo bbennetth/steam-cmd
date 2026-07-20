@@ -1,0 +1,34 @@
+{
+  "name": "@steam-cmd/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --build",
+    "db:generate": "drizzle-kit generate",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@noble/hashes": "^2.2.0",
+    "@steam-cmd/shared": "*",
+    "better-sqlite3": "^12.4.1",
+    "croner": "^9.0.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.0",
+    "tar": "^7.4.3",
+    "ulid": "^2.3.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  }
+}

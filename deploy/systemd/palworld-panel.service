@@ -1,0 +1,23 @@
+[Unit]
+Description=Palworld Management Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=palworld
+Group=palworld
+WorkingDirectory=/opt/palworld-panel
+EnvironmentFile=/etc/palworld-panel/panel.env
+ExecStart=/usr/bin/node /opt/palworld-panel/apps/server/dist/server.js
+Restart=always
+RestartSec=3
+MemoryMax=512M
+SyslogIdentifier=palworld-panel
+# IMPORTANT: do NOT set NoNewPrivileges=true here — the panel calls
+# `sudo systemctl` to control palworld.service, and NoNewPrivileges
+# breaks sudo. (If you want that hardening, switch service control to a
+# polkit rule first; see deploy/README.md.)
+
+[Install]
+WantedBy=multi-user.target
