@@ -14,7 +14,7 @@ set -euo pipefail
 
 # --- config (env-overridable) ----------------------------------------------
 CTID="${CTID:-}"                         # empty = next free id
-HN="${HN:-palworld}"
+HN="${HN:-rallypoint-cmd}"
 CORES="${CORES:-6}"
 RAM="${RAM:-16384}"                      # MiB (Palworld leak climbs 15-25 GiB)
 SWAP="${SWAP:-4096}"
