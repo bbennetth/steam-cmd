@@ -41,7 +41,7 @@ export function createRealJournal(logger: Logger): Journal {
 
   function spawnTailer(): void {
     if (stopped || child) return
-    // Frozen argv — must match deploy/sudoers/palworld-panel exactly.
+    // Frozen argv — must match deploy/sudoers/rallypoint-cmd exactly.
     child = spawn('sudo', ['-n', JOURNALCTL_BIN, ...JOURNALCTL_TAIL_ARGS], {
       stdio: ['ignore', 'pipe', 'ignore'],
     })

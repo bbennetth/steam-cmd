@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { ulid } from 'ulid'
-import type { LongOp, LongOpKind } from '@steam-cmd/shared'
+import type { LongOp, LongOpKind } from '@rallypoint-cmd/shared'
 import type { OpSink } from './types.js'
 
 const LINE_BUFFER_MAX = 1000

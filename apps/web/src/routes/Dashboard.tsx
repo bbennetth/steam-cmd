@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { ServerLifecycle } from '@steam-cmd/shared'
+import type { ServerLifecycle } from '@rallypoint-cmd/shared'
 import { api, ApiError } from '../lib/api.js'
 import { usePoll } from '../lib/usePoll.js'
 import { formatBytes, formatUptime } from '../lib/format.js'

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { DiskUsage } from '@steam-cmd/shared'
+import type { DiskUsage } from '@rallypoint-cmd/shared'
 
 // statfs-based disk usage for the panel's mounts. Also the pre-op
 // free-space guard: refuse writes that would drop below the floor.

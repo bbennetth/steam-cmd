@@ -8,8 +8,8 @@ import type {
   Schedule,
   ScheduleRun,
   UpdateScheduleRequest,
-} from '@steam-cmd/shared'
-import { backupPayloadSchema, restartPayloadSchema } from '@steam-cmd/shared'
+} from '@rallypoint-cmd/shared'
+import { backupPayloadSchema, restartPayloadSchema } from '@rallypoint-cmd/shared'
 import type { Db } from '../db/client.js'
 import type { Env } from '../env.js'
 import type { Logger } from '../logger.js'

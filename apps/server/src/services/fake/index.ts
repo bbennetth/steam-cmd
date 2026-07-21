@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { EventEmitter } from 'node:events'
-import type { PalServerInfo, PalServerMetrics, Player } from '@steam-cmd/shared'
+import type { PalServerInfo, PalServerMetrics, Player } from '@rallypoint-cmd/shared'
 import type { Env } from '../../env.js'
 import type { Logger } from '../../logger.js'
 import type { GameControl, Journal, OpSink, PalRest, SteamCmd, SystemdStatus } from '../types.js'

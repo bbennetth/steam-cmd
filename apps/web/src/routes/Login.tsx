@@ -35,7 +35,7 @@ export function LoginPage() {
         className="w-full max-w-sm rounded-2xl border border-panel-border bg-panel-surface p-6"
       >
         <div className="mb-6 flex items-center gap-2 text-lg font-semibold">
-          <span className="text-panel-accent">◆</span> Palworld Panel
+          <span className="text-panel-accent">◆</span> Rallypoint
         </div>
         <div className="space-y-4">
           <Field label="Username">

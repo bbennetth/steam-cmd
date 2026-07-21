@@ -1,4 +1,4 @@
-import type { LongOpKind, PalServerInfo, PalServerMetrics, Player } from '@steam-cmd/shared'
+import type { LongOpKind, PalServerInfo, PalServerMetrics, Player } from '@rallypoint-cmd/shared'
 import type { WorldLock } from './world-lock.js'
 import type { LongOpRunner } from './long-op.js'
 import type { SettingsService } from './settings-ini.js'

@@ -1,5 +1,5 @@
 {
-  "name": "@steam-cmd/web",
+  "name": "@rallypoint-cmd/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@steam-cmd/shared": "*",
+    "@rallypoint-cmd/shared": "*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.1.0",

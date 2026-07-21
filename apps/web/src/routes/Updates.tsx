@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LongOp } from '@steam-cmd/shared'
+import type { LongOp } from '@rallypoint-cmd/shared'
 import { api, ApiError } from '../lib/api.js'
 import { useSseUpdates } from '../lib/useEventSource.js'
 import { Badge, Button, Card, Spinner } from '../ui/primitives.js'

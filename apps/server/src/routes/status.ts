@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { ServerLifecycle, ServerStatus } from '@steam-cmd/shared'
+import type { ServerLifecycle, ServerStatus } from '@rallypoint-cmd/shared'
 import type { HonoApp } from '../context.js'
 import { requireSession } from '../middleware/session.js'
 import { diskUsage } from '../services/disk.js'

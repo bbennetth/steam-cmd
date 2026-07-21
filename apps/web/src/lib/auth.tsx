@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { SessionInfo } from '@steam-cmd/shared'
+import type { SessionInfo } from '@rallypoint-cmd/shared'
 import { api, ApiError } from './api.js'
 
 interface AuthState {

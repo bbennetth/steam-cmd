@@ -1,4 +1,4 @@
-// Frozen argv constants. The sudoers file (deploy/sudoers/palworld-panel)
+// Frozen argv constants. The sudoers file (deploy/sudoers/rallypoint-cmd)
 // pins these EXACT command lines — code and sudoers must never drift, so
 // both are generated from/checked against this file.
 

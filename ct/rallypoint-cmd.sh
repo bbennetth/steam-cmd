@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 Byron Howell — MIT
-# Palworld dedicated server + management panel, in one Debian 12 Proxmox LXC.
+# Rallypoint — a web manager for a Palworld dedicated server, in one Debian 12 Proxmox LXC.
 #
 # One-line install, run ON the Proxmox VE host as root:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/rallypoint-cmd/main/ct/palworld-panel.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/bbennetth/rallypoint-cmd/main/ct/rallypoint-cmd.sh)"
 #
 # Re-run the same line INSIDE the container (pct enter <id>) to update in place.
 # Override any default with an env var, e.g. CTID=210 RAM=24576 DISK=80 bash -c "$(...)".
-# Preview only (creates nothing): DRYRUN=1 bash -c "$(curl -fsSL .../ct/palworld-panel.sh)".
+# Preview only (creates nothing): DRYRUN=1 bash -c "$(curl -fsSL .../ct/rallypoint-cmd.sh)".
 # See raw command output while it runs: VERBOSE=1 bash -c "$(...)".
 
 set -euo pipefail
@@ -49,19 +49,19 @@ if [[ -n "$VERBOSE" ]]; then STD=""; else STD="qt"; fi
 qt() { "$@" >/dev/null 2>&1; }
 
 # --- update mode: same command re-run INSIDE the container ------------------
-if [[ -f /etc/palworld-panel/panel.env ]]; then
+if [[ -f /etc/rallypoint-cmd/panel.env ]]; then
   if [[ -n "$DRYRUN" ]]; then
-    echo -e " ${YW}[dry-run]${CL} update mode: would git fetch+reset to '${PANEL_REPO_REF}', npm ci && build, then restart palworld-panel.service. No changes made."
+    echo -e " ${YW}[dry-run]${CL} update mode: would git fetch+reset to '${PANEL_REPO_REF}', npm ci && build, then restart rallypoint-cmd.service. No changes made."
     exit 0
   fi
   msg_info "Updating the panel in place (the game keeps running)"
-  cd /opt/palworld-panel
-  git config --global --add safe.directory /opt/palworld-panel 2>/dev/null || true
+  cd /opt/rallypoint-cmd
+  git config --global --add safe.directory /opt/rallypoint-cmd 2>/dev/null || true
   git fetch --depth 1 origin "$PANEL_REPO_REF"
   git reset --hard "origin/$PANEL_REPO_REF"
   npm ci && npm run build
-  chown -R root:palworld /opt/palworld-panel && chmod -R g-w /opt/palworld-panel
-  systemctl restart palworld-panel.service
+  chown -R root:palworld /opt/rallypoint-cmd && chmod -R g-w /opt/rallypoint-cmd
+  systemctl restart rallypoint-cmd.service
   msg_ok "Panel updated"
   exit 0
 fi
@@ -79,7 +79,7 @@ if [[ -z "$DRYRUN" ]]; then
   [[ $HAVE_PCT -eq 1 ]] || die "'pct' not found — run this on a Proxmox VE host."
 fi
 
-echo -e "\n ${GN}Palworld Panel${CL} — Proxmox VE one-line installer\n"
+echo -e "\n ${GN}Rallypoint${CL} — Proxmox VE one-line installer\n"
 
 # --- resolve id / network / template (read-only) ---------------------------
 if [[ -z "$CTID" ]]; then
@@ -126,7 +126,7 @@ if [[ -n "$DRYRUN" ]]; then
 
  Then inside the CT: i386 multiarch + Node 22 + SteamCMD (app $PAL_APP_ID) + Palworld,
  clone & build the panel, write PalWorldSettings.ini / systemd units / sudoers / panel.env,
- lock down code (root:palworld, group-ro), enable + start palworld + palworld-panel.
+ lock down code (root:palworld, group-ro), enable + start palworld + rallypoint-cmd.
 PLAN
   exit 0
 fi
@@ -188,8 +188,8 @@ fi
 echo ">>> palworld user + data dirs"
 id palworld &>/dev/null || useradd -d /opt/palworld -m -s /bin/bash palworld
 install -d -o palworld -g palworld -m 0755 /opt/palworld
-install -d -o palworld -g palworld -m 0750 /var/lib/palworld-panel /var/backups/palworld
-install -d -o root -g palworld -m 0750 /etc/palworld-panel
+install -d -o palworld -g palworld -m 0750 /var/lib/rallypoint-cmd /var/backups/palworld
+install -d -o root -g palworld -m 0750 /etc/rallypoint-cmd
 
 echo ">>> SteamCMD + Palworld dedicated server (pulls several GiB)"
 install -d -o palworld -g palworld /opt/palworld/steamcmd
@@ -209,8 +209,8 @@ done
 [[ \$sc_ok -eq 1 ]] || { echo "SteamCMD failed to install Palworld after 3 attempts (re-run with VERBOSE=1 for the full log)."; exit 1; }
 
 echo ">>> panel: clone + build"
-git clone --depth 1 --branch "$PANEL_REPO_REF" "$PANEL_REPO_URL" /opt/palworld-panel
-cd /opt/palworld-panel
+git clone --depth 1 --branch "$PANEL_REPO_REF" "$PANEL_REPO_URL" /opt/rallypoint-cmd
+cd /opt/rallypoint-cmd
 npm ci
 npm run build
 
@@ -219,28 +219,28 @@ PAL_CFG=/opt/palworld/Pal/Saved/Config/LinuxServer
 install -d -o palworld -g palworld -m 0755 "\$PAL_CFG"
 if [[ ! -f "\$PAL_CFG/PalWorldSettings.ini" ]]; then
   sed "s/__ADMIN_PASSWORD__/$GAME_ADMIN_PW/" \
-    /opt/palworld-panel/deploy/config/PalWorldSettings.default.ini > "\$PAL_CFG/PalWorldSettings.ini"
+    /opt/rallypoint-cmd/deploy/config/PalWorldSettings.default.ini > "\$PAL_CFG/PalWorldSettings.ini"
   chown palworld:palworld "\$PAL_CFG/PalWorldSettings.ini"; chmod 0640 "\$PAL_CFG/PalWorldSettings.ini"
 fi
 
 echo ">>> systemd units + least-privilege sudoers"
 install -m 0644 deploy/systemd/palworld.service /etc/systemd/system/palworld.service
-install -m 0644 deploy/systemd/palworld-panel.service /etc/systemd/system/palworld-panel.service
-install -m 0440 -o root -g root deploy/sudoers/palworld-panel /etc/sudoers.d/palworld-panel
-visudo -cf /etc/sudoers.d/palworld-panel >/dev/null
+install -m 0644 deploy/systemd/rallypoint-cmd.service /etc/systemd/system/rallypoint-cmd.service
+install -m 0440 -o root -g root deploy/sudoers/rallypoint-cmd /etc/sudoers.d/rallypoint-cmd
+visudo -cf /etc/sudoers.d/rallypoint-cmd >/dev/null
 
 echo ">>> panel environment"
-cat > /etc/palworld-panel/panel.env <<ENV
+cat > /etc/rallypoint-cmd/panel.env <<ENV
 NODE_ENV=production
 PANEL_MODE=live
 PANEL_HOST=127.0.0.1
 PANEL_PORT=$PANEL_PORT
 PAL_DIR=/opt/palworld
-DATA_DIR=/var/lib/palworld-panel
+DATA_DIR=/var/lib/rallypoint-cmd
 BACKUP_DIR=/var/backups/palworld
 STEAMCMD_BIN=/opt/palworld/steamcmd/steamcmd.sh
 PAL_REST_URL=http://127.0.0.1:8212
-WEB_DIST_DIR=/opt/palworld-panel/apps/web/dist
+WEB_DIST_DIR=/opt/rallypoint-cmd/apps/web/dist
 PANEL_PASSWORD_PEPPER=$PANEL_PEPPER
 PANEL_ADMIN_USERNAME=$PANEL_ADMIN_USER
 PANEL_ADMIN_PASSWORD=$PANEL_ADMIN_PASSWORD
@@ -250,13 +250,13 @@ PANEL_REPO_REF=$PANEL_REPO_REF
 COOKIE_SECURE=false
 TRUSTED_PROXY=true
 ENV
-chown root:palworld /etc/palworld-panel/panel.env; chmod 0640 /etc/palworld-panel/panel.env
+chown root:palworld /etc/rallypoint-cmd/panel.env; chmod 0640 /etc/rallypoint-cmd/panel.env
 
 echo ">>> lock down panel code (root:palworld, group-read-only) + start"
-chown -R root:palworld /opt/palworld-panel; chmod -R g-w /opt/palworld-panel
+chown -R root:palworld /opt/rallypoint-cmd; chmod -R g-w /opt/rallypoint-cmd
 systemctl daemon-reload
-systemctl enable -q palworld.service palworld-panel.service
-systemctl start palworld-panel.service palworld.service
+systemctl enable -q palworld.service rallypoint-cmd.service
+systemctl start rallypoint-cmd.service palworld.service
 EOF
 msg_ok "Installed"
 
@@ -264,7 +264,7 @@ msg_ok "Installed"
 IP="$(pct exec "$CTID" -- hostname -I 2>/dev/null | awk '{print $1}')"
 cat <<SUMMARY
 
- ${GN}Palworld panel is up.${CL}
+ ${GN}Rallypoint is up.${CL}
    CT id / root pw : ${CTID}  /  ${CT_PASSWORD}
    Panel (LAN)     : http://${IP:-<container-ip>}:${PANEL_PORT}
    Login           : ${PANEL_ADMIN_USER} / ${PANEL_ADMIN_PASSWORD}

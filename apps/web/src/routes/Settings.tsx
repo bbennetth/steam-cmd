@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { SettingsEntry, SettingValue } from '@steam-cmd/shared'
+import type { SettingsEntry, SettingValue } from '@rallypoint-cmd/shared'
 import { api, ApiError } from '../lib/api.js'
 import { Badge, Button, Card, inputClass } from '../ui/primitives.js'
 

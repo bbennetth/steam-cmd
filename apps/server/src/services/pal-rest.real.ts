@@ -1,5 +1,5 @@
-import { palServerInfoSchema, palServerMetricsSchema, playersResponseSchema } from '@steam-cmd/shared'
-import type { Player } from '@steam-cmd/shared'
+import { palServerInfoSchema, palServerMetricsSchema, playersResponseSchema } from '@rallypoint-cmd/shared'
+import type { Player } from '@rallypoint-cmd/shared'
 import type { Env } from '../env.js'
 import type { Logger } from '../logger.js'
 import type { PalRest } from './types.js'

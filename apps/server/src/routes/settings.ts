@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { rawSettingsSchema, settingsPatchSchema } from '@steam-cmd/shared'
+import { rawSettingsSchema, settingsPatchSchema } from '@rallypoint-cmd/shared'
 import type { HonoApp } from '../context.js'
 import { ApiError, errors } from '../errors.js'
 import { requireSession } from '../middleware/session.js'

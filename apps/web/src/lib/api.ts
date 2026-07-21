@@ -24,7 +24,7 @@ import {
   type SettingValue,
   type UpdateScheduleRequest,
   type UpdateState,
-} from '@steam-cmd/shared'
+} from '@rallypoint-cmd/shared'
 import { z } from 'zod'
 
 // Typed fetch client. Same-origin, cookie session; state-changing calls

@@ -1,5 +1,5 @@
 {
-  "name": "@steam-cmd/server",
+  "name": "@rallypoint-cmd/server",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@noble/hashes": "^2.2.0",
-    "@steam-cmd/shared": "*",
+    "@rallypoint-cmd/shared": "*",
     "better-sqlite3": "^12.4.1",
     "croner": "^9.0.0",
     "drizzle-orm": "^0.45.2",

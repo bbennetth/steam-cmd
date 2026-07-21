@@ -5,7 +5,7 @@ import type { Env } from './env.js'
 import type { Logger } from './logger.js'
 import type { PasswordHasher } from './auth/password.js'
 import { admins, schedules } from './db/schema/index.js'
-import type { BackupPayload, RestartPayload } from '@steam-cmd/shared'
+import type { BackupPayload, RestartPayload } from '@rallypoint-cmd/shared'
 
 // First-boot admin seeding: only when the admins table is empty. The
 // provisioner passes PANEL_ADMIN_PASSWORD; dev prints a generated one.

@@ -3,7 +3,7 @@ import {
   announceRequestSchema,
   kickBanRequestSchema,
   unbanRequestSchema,
-} from '@steam-cmd/shared'
+} from '@rallypoint-cmd/shared'
 import type { HonoApp } from '../context.js'
 import { errors } from '../errors.js'
 import { requireSession } from '../middleware/session.js'

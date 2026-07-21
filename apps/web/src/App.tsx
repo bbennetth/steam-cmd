@@ -29,7 +29,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="border-b border-panel-border bg-panel-surface/60 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
           <div className="flex items-center gap-2 font-semibold">
-            <span className="text-panel-accent">◆</span> Palworld Panel
+            <span className="text-panel-accent">◆</span> Rallypoint
           </div>
           <nav className="flex flex-1 flex-wrap gap-1">
             {NAV.map((n) => (

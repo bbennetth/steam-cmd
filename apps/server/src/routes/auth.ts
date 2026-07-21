@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { deleteCookie, setCookie } from 'hono/cookie'
 import { and, eq, ne } from 'drizzle-orm'
-import { changePasswordRequestSchema, loginRequestSchema } from '@steam-cmd/shared'
+import { changePasswordRequestSchema, loginRequestSchema } from '@rallypoint-cmd/shared'
 import type { HonoApp } from '../context.js'
 import { errors } from '../errors.js'
 import { generateSessionToken, hashToken } from '../auth/tokens.js'

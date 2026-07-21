@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Schedule, ScheduleKind } from '@steam-cmd/shared'
+import type { Schedule, ScheduleKind } from '@rallypoint-cmd/shared'
 import { api, ApiError } from '../lib/api.js'
 import { formatDateTime } from '../lib/format.js'
 import { Badge, Button, Card, Field, inputClass } from '../ui/primitives.js'

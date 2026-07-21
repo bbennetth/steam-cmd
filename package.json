@@ -1,5 +1,5 @@
 {
-  "name": "steam-cmd",
+  "name": "rallypoint-cmd",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -20,9 +20,9 @@
     "test:watch": "vitest",
     "check": "npm run lint && npm run typecheck && npm run test",
     "dev": "bash scripts/dev.sh",
-    "dev:server": "npm run dev --workspace=@steam-cmd/server",
-    "dev:web": "npm run dev --workspace=@steam-cmd/web",
-    "db:generate": "npm run db:generate --workspace=@steam-cmd/server",
+    "dev:server": "npm run dev --workspace=@rallypoint-cmd/server",
+    "dev:web": "npm run dev --workspace=@rallypoint-cmd/web",
+    "db:generate": "npm run db:generate --workspace=@rallypoint-cmd/server",
     "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {

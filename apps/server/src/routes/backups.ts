@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { Readable } from 'node:stream'
 import { Hono } from 'hono'
-import { restoreRequestSchema } from '@steam-cmd/shared'
+import { restoreRequestSchema } from '@rallypoint-cmd/shared'
 import type { HonoApp } from '../context.js'
 import { ApiError, errors } from '../errors.js'
 import { requireSession } from '../middleware/session.js'

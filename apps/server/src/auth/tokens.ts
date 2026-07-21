@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import { PANEL_TOKEN_PREFIXES } from '@steam-cmd/shared'
+import { PANEL_TOKEN_PREFIXES } from '@rallypoint-cmd/shared'
 
 // Opaque bearer tokens (rallypoint convention): `<prefix><base64url(256-bit)>`,
 // stored only as sha256 hex.

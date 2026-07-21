@@ -96,7 +96,7 @@ export function parseEnv(raw: NodeJS.ProcessEnv): Env {
   // run never touches /opt or /var.
   const mock = parsed.PANEL_MODE === 'mock'
   const sandboxRoot = path.resolve(process.cwd(), 'data')
-  const dataDir = parsed.DATA_DIR ?? (mock ? path.join(sandboxRoot, 'panel') : '/var/lib/palworld-panel')
+  const dataDir = parsed.DATA_DIR ?? (mock ? path.join(sandboxRoot, 'panel') : '/var/lib/rallypoint-cmd')
   const backupDir =
     parsed.BACKUP_DIR ?? (mock ? path.join(sandboxRoot, 'backups') : '/var/backups/palworld')
   const palDir = parsed.PAL_DIR ?? (mock ? path.join(sandboxRoot, 'palworld') : '/opt/palworld')
@@ -117,8 +117,8 @@ export function parseEnv(raw: NodeJS.ProcessEnv): Env {
     PANEL_ADMIN_PASSWORD: parsed.PANEL_ADMIN_PASSWORD,
     COOKIE_SECURE: cookieSecure,
     // __Host- requires Secure + Path=/ + no Domain; only usable behind TLS.
-    SESSION_COOKIE_NAME: cookieSecure ? '__Host-pal_session' : 'pal_session',
-    CSRF_COOKIE_NAME: cookieSecure ? '__Host-pal_csrf' : 'pal_csrf',
+    SESSION_COOKIE_NAME: cookieSecure ? '__Host-rp_session' : 'rp_session',
+    CSRF_COOKIE_NAME: cookieSecure ? '__Host-rp_csrf' : 'rp_csrf',
     TRUSTED_PROXY: parsed.TRUSTED_PROXY,
     PANEL_VERSION: raw.npm_package_version ?? '0.1.0',
   }

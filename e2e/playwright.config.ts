@@ -20,7 +20,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `npm run build --workspace=@steam-cmd/web && npx tsx apps/server/src/server.ts`,
+    command: `npm run build --workspace=@rallypoint-cmd/web && npx tsx apps/server/src/server.ts`,
     cwd: ROOT,
     port: PORT,
     reuseExistingServer: !process.env.CI,

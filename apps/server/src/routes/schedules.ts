@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { createScheduleRequestSchema, updateScheduleRequestSchema } from '@steam-cmd/shared'
+import { createScheduleRequestSchema, updateScheduleRequestSchema } from '@rallypoint-cmd/shared'
 import type { HonoApp } from '../context.js'
 import { errors } from '../errors.js'
 import { requireSession } from '../middleware/session.js'

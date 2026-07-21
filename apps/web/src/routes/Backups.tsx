@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Backup, RestorePreview } from '@steam-cmd/shared'
+import type { Backup, RestorePreview } from '@rallypoint-cmd/shared'
 import { api, ApiError } from '../lib/api.js'
 import { formatBytes, formatDateTime } from '../lib/format.js'
 import { Badge, Button, Card, inputClass, Spinner } from '../ui/primitives.js'
