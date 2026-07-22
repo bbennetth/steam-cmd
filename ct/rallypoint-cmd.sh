@@ -9,6 +9,7 @@
 # Override any default with an env var, e.g. CTID=210 RAM=24576 DISK=80 bash -c "$(...)".
 # Preview only (creates nothing): DRYRUN=1 bash -c "$(curl -fsSL .../ct/rallypoint-cmd.sh)".
 # See raw command output while it runs: VERBOSE=1 bash -c "$(...)".
+# Tunnel-only (no LAN exposure): PANEL_BIND=127.0.0.1 bash -c "$(...)".
 
 set -euo pipefail
 
@@ -27,6 +28,7 @@ NET_GW="${NET_GW:-}"                     # required if NET_IP is static
 CT_PASSWORD="${CT_PASSWORD:-}"           # CT root pw; empty = random
 TZ_REGION="${TZ_REGION:-Etc/UTC}"
 PANEL_PORT="${PANEL_PORT:-8080}"
+PANEL_BIND="${PANEL_BIND:-0.0.0.0}"      # LAN by default; 127.0.0.1 = tunnel-only
 PANEL_ADMIN_USER="${PANEL_ADMIN_USER:-admin}"
 PANEL_ADMIN_PASSWORD="${PANEL_ADMIN_PASSWORD:-}"  # empty = random (printed once)
 PANEL_REPO_URL="${PANEL_REPO_URL:-https://github.com/bbennetth/rallypoint-cmd.git}"
@@ -116,7 +118,7 @@ if [[ -n "$DRYRUN" ]]; then
    flags ......... unprivileged, nesting=1, onboot=1
    network ....... $NETCONF
    template ...... $TEMPLATE
-   panel ......... http://<ct-ip>:$PANEL_PORT   (login: $PANEL_ADMIN_USER / ${ap_display})
+   panel ......... http://<ct-ip>:$PANEL_PORT  bind=$PANEL_BIND  (login: $PANEL_ADMIN_USER / ${ap_display})
    source ........ $PANEL_REPO_URL @ $PANEL_REPO_REF
 
  Host command:
@@ -233,7 +235,9 @@ echo ">>> panel environment"
 cat > /etc/rallypoint-cmd/panel.env <<ENV
 NODE_ENV=production
 PANEL_MODE=live
-PANEL_HOST=127.0.0.1
+# Bind address: 0.0.0.0 = reachable on the LAN (default). Set to 127.0.0.1
+# for tunnel-only once cloudflared runs inside the CT.
+PANEL_HOST=$PANEL_BIND
 PANEL_PORT=$PANEL_PORT
 PAL_DIR=/opt/palworld
 DATA_DIR=/var/lib/rallypoint-cmd

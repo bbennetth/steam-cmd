@@ -59,6 +59,8 @@ stops the server, runs `app_update 2394010 validate`, and restarts it.
 
 ## Remote access
 
-The panel binds to `127.0.0.1:8080`. Add a Cloudflare Tunnel ingress → `http://127.0.0.1:8080`,
-then set `COOKIE_SECURE=true` in `/etc/rallypoint-cmd/panel.env` and restart `rallypoint-cmd`.
-Palworld's REST API stays on `127.0.0.1:8212` and is never exposed.
+The panel binds `0.0.0.0:8080` by default so `http://<ct-ip>:8080` works on the LAN
+(override at install time with `PANEL_BIND=127.0.0.1` for tunnel-only). For remote access add a
+Cloudflare Tunnel ingress → `http://127.0.0.1:8080`, then set `COOKIE_SECURE=true` — and, if you
+no longer need LAN access, `PANEL_HOST=127.0.0.1` — in `/etc/rallypoint-cmd/panel.env` and restart
+`rallypoint-cmd`. Palworld's REST API stays on `127.0.0.1:8212` and is never exposed.
